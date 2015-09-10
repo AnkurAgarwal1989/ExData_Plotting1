@@ -1,114 +1,125 @@
-## Introduction
+---
+title: "Course Project 1"
+author: "Ankur Agarwal"
+date: "September 9, 2015"
+output: 
+  html_document: 
+    fig_width: 5
+    toc: yes
+---
 
-This assignment uses data from
-the <a href="http://archive.ics.uci.edu/ml/">UC Irvine Machine
-Learning Repository</a>, a popular repository for machine learning
-datasets. In particular, we will be using the "Individual household
-electric power consumption Data Set" which I have made available on
-the course web site:
+#Course Project 1
 
+This R Markdown document shows some important code snippets used in Exploratory Data Analysis: Course Project 1.
 
-* <b>Dataset</b>: <a href="https://d396qusza40orc.cloudfront.net/exdata%2Fdata%2Fhousehold_power_consumption.zip">Electric power consumption</a> [20Mb]
+##Task 1: Reading Data
 
-* <b>Description</b>: Measurements of electric power consumption in
-one household with a one-minute sampling rate over a period of almost
-4 years. Different electrical quantities and some sub-metering values
-are available.
+The original data is gigantic and we only need to use the data for dates: 1/2/2007 to 2/2/2007. There are lots of ways to do that. 
 
+> Save the data once its read. Don't need to read it again and again.
+Also make this a function which returns a data frame.
 
-The following descriptions of the 9 variables in the dataset are taken
-from
-the <a href="https://archive.ics.uci.edu/ml/datasets/Individual+household+electric+power+consumption">UCI
-web site</a>:
+```{r, eval=FALSE}
+#Method 1: Fast and too many steps
+#We can grep for the required data
+read.table(pipe('grep "^[1-2]/2/2007" "household_power_consumption.txt"'))
+#This will need additional processing to split the single column into multiple columns but is pretty fast
 
-<ol>
-<li><b>Date</b>: Date in format dd/mm/yyyy </li>
-<li><b>Time</b>: time in format hh:mm:ss </li>
-<li><b>Global_active_power</b>: household global minute-averaged active power (in kilowatt) </li>
-<li><b>Global_reactive_power</b>: household global minute-averaged reactive power (in kilowatt) </li>
-<li><b>Voltage</b>: minute-averaged voltage (in volt) </li>
-<li><b>Global_intensity</b>: household global minute-averaged current intensity (in ampere) </li>
-<li><b>Sub_metering_1</b>: energy sub-metering No. 1 (in watt-hour of active energy). It corresponds to the kitchen, containing mainly a dishwasher, an oven and a microwave (hot plates are not electric but gas powered). </li>
-<li><b>Sub_metering_2</b>: energy sub-metering No. 2 (in watt-hour of active energy). It corresponds to the laundry room, containing a washing-machine, a tumble-drier, a refrigerator and a light. </li>
-<li><b>Sub_metering_3</b>: energy sub-metering No. 3 (in watt-hour of active energy). It corresponds to an electric water-heater and an air-conditioner.</li>
-</ol>
+#Method 2: Slow and too many steps (readDataFunc_lapply.R)
+#We can read in only the date column 
+colClasses = c('character', rep('NULL', 8))
+#Then extract only the dates we require. Then read only the row indices by looping and skipping
+requiredDates <- which(dataDates$Date %in% c("1/2/2007", "2/2/2007"))
+d <- lapply(reqdDates, 
+                function(x){read.table("household_power_consumption.txt", sep = ';',
+                                       na.strings = '?',nrows = 1, header = F, as.is = T,
+                                       skip = x, colClasses = classes, comment.char = "")})
 
-## Loading the data
-
-
-
-
-
-When loading the dataset into R, please consider the following:
-
-* The dataset has 2,075,259 rows and 9 columns. First
-calculate a rough estimate of how much memory the dataset will require
-in memory before reading into R. Make sure your computer has enough
-memory (most modern computers should be fine).
-
-* We will only be using data from the dates 2007-02-01 and
-2007-02-02. One alternative is to read the data from just those dates
-rather than reading in the entire dataset and subsetting to those
-dates.
-
-* You may find it useful to convert the Date and Time variables to
-Date/Time classes in R using the `strptime()` and `as.Date()`
-functions.
-
-* Note that in this dataset missing values are coded as `?`.
+#Method 3: Slow but no additional steps (readDataFunc_sqldf.R)
+requiredData <- read.csv2.sql("household_power_consumption.txt", sql = "SELECT * FROM file
+                              WHERE Date in ('1/2/2007', '2/2/2007')")
+```
+```{r message=FALSE, cache=TRUE}
+source('readDataFunc_sqldf.R')
+df <- readDataFunc()
+```
+```{r, eval=FALSE}
+# The readDataFunc also pastes the date and time together and converts them from char to POSIX time format
+requiredData$Date <- as.character.Date(requiredData$Date)
+requiredData$Time <- as.character.Date(requiredData$Time)
+requiredData$DateTime <- paste(requiredData$Date, requiredData$Time)
+requiredData$DateTime <- strptime(requiredData$DateTime, "%d/%m/%Y %H:%M:%S")
+```
 
 
-## Making Plots
+##Task 2: Plotting
 
-Our overall goal here is simply to examine how household energy usage
-varies over a 2-day period in February, 2007. Your task is to
-reconstruct the following plots below, all of which were constructed
-using the base plotting system.
+*   **Plot 1**  
+Simple histogram
+```{r}
+hist(df$Global_active_power, col='red', 
+     main = "Global Active Power", xlab = 'Global Active Power (kilowatts)')
+```
 
-First you will need to fork and clone the following GitHub repository:
-[https://github.com/rdpeng/ExData_Plotting1](https://github.com/rdpeng/ExData_Plotting1)
+*   **Plot 2**  
+Line plot with Date on X axis
+```{r}
+plot(x = df$DateTime, y = df$Global_active_power, type='l',
+     ylab = "Global Active Power (kilowatts)", xlab = "")
 
+#these plots are automatically showing wdays in the x ticks, but if they don't we can change
+#x tick positions and labels
+```
 
-For each plot you should
+*   **Plot 3**  
+3 Line plots in 1
+```{r}
+plot(x = df$DateTime, y = df$Sub_metering_1, type='l',
+     ylab = "Energy Sub Metering", xlab = "")
+lines(x = df$DateTime, y = df$Sub_metering_2, col = 'red')
+lines(x = df$DateTime, y = df$Sub_metering_3, col = 'blue')
+legend("topright",lty = 1,
+       col = c("black","blue", "red"), 
+       legend = c("Sub_metering_1", "Sub_metering_2", "Sub_metering_3"))
+```
 
-* Construct the plot and save it to a PNG file with a width of 480
-pixels and a height of 480 pixels.
+*   **Plot 4**
+4 subplots
+```{r}
+par(mfrow=c(2,2), mar = c(4,4,2,1), oma=c(0,0,0,0))
+with(df, {
+    #1,1
+    plot(x = df$DateTime, y = df$Global_active_power, type='l',
+         ylab = "Global Active Power", xlab = "");
+    
+    #2,1
+    plot(x = df$DateTime, y = df$Voltage, type='l',
+         ylab = "Voltage", xlab = "")
+    title(sub = 'datetime', line = 3)
+    
+    #1,2
+    plot(x = df$DateTime, y = df$Sub_metering_1, type='l',
+         ylab = "Energy_Sub_Metering", xlab = "")
+    lines(x = df$DateTime, y = df$Sub_metering_2, col = 'red')
+    lines(x = df$DateTime, y = df$Sub_metering_3, col = 'blue');
+    legend("topright",lty = 1,
+           col = c("black","blue", "red"), 
+           bty = 'n',
+           cex = 0.8,
+           legend = c("Sub_metering_1", "Sub_metering_2", "Sub_metering_3"))
+    
+    
+    #2,2
+    plot(x = df$DateTime, y = df$Global_reactive_power, type='l',
+         ylab = "Global Reactive Power", xlab = "")
+    title(sub = 'datetime', line = 3)
+})
+```
 
-* Name each of the plot files as `plot1.png`, `plot2.png`, etc.
-
-* Create a separate R code file (`plot1.R`, `plot2.R`, etc.) that
-constructs the corresponding plot, i.e. code in `plot1.R` constructs
-the `plot1.png` plot. Your code file **should include code for reading
-the data** so that the plot can be fully reproduced. You should also
-include the code that creates the PNG file.
-
-* Add the PNG file and R code file to your git repository
-
-When you are finished with the assignment, push your git repository to
-GitHub so that the GitHub version of your repository is up to
-date. There should be four PNG files and four R code files.
-
-
-The four plots that you will need to construct are shown below. 
-
-
-### Plot 1
-
-
-![plot of chunk unnamed-chunk-2](figure/unnamed-chunk-2.png) 
-
-
-### Plot 2
-
-![plot of chunk unnamed-chunk-3](figure/unnamed-chunk-3.png) 
-
-
-### Plot 3
-
-![plot of chunk unnamed-chunk-4](figure/unnamed-chunk-4.png) 
-
-
-### Plot 4
-
-![plot of chunk unnamed-chunk-5](figure/unnamed-chunk-5.png) 
+##Task 3: Saving to file
+We need to open the right device to use. Remember to close once completed.
+```{r eval=FALSE}
+dev.copy(png, 'plot1.R', width = 480, height = 480)
+dev.off()
+```
 
